@@ -1,5 +1,5 @@
-# MLanguage
-i18n
+# MLanguage Javascript i18n 国际化
+
 详细说明：https://www.520internet.com/m.js/language.html
 
 优点：
