@@ -1,6 +1,7 @@
 # MLanguage
 i18n
- 
+详细说明：https://www.520internet.com/m.js/language.html
+
 优点：
 - 主要对于现有项目改造实现国际化，当然新项目实施也可采用此方法。
 - 无需在系统或平台定义繁多的标签（TEXT="文本", LANGUAGE="语言", SETTING="设置"......）进行翻译；
