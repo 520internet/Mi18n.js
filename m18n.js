@@ -544,8 +544,15 @@
       */
     }
   };
-
-  window.Mi18n = Mi18n;
+  if (typeof define === 'function' && define.amd) {
+      define(function () {
+        return Mi18n
+      })
+    } else if (typeof module === 'object' && module.exports) {
+      module.exports = Mi18n
+    } else {
+      window.Mi18n = Mi18n;
+    }
 })($, window);
 
 console.log('https://github.com/520internet/Mi18n');
