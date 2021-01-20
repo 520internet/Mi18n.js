@@ -1,6 +1,6 @@
 # MLanguage Javascript i18n 国际化
 
-详细说明：https://www.520internet.com/m.js/language.html
+详细说明：https://www.520internet.com/m.js/language/index.html
 
 优点：
 - 主要对于现有项目改造实现国际化，当然新项目实施也可采用此方法。
