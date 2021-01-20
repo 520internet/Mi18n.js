@@ -25,6 +25,12 @@
       var name = language.toLowerCase().split('-');
       return name[0];
     },
+
+    /**
+     * MD5
+     * @param string string
+     * @return string
+     */
     md5: function(string) {
       function RotateLeft(lValue, iShiftBits) {
         return (lValue << iShiftBits) | (lValue >>> (32 - iShiftBits));
@@ -241,8 +247,12 @@
       var temp = WordToHex(a) + WordToHex(b) + WordToHex(c) + WordToHex(d);
       return temp.toLowerCase();
     },
+
+    /**
+     * Cookie
+     * set、get
+     */
     cookie: {
-      lastUpdate: '2016-4-22 02:03:09',
       enabled: navigator.cookieEnabled,
       expireTime: 30 * 24 * 60 * 60 * 1000,
 
@@ -311,7 +321,10 @@
       }
     },
 
-    // 采集需要翻译的标签
+    /**
+     * 采集需要翻译的标签
+     * @param object el
+     */
     collection: function(el) {
       var sourceLanguage = [],
         _this = this;
@@ -372,6 +385,10 @@
       this.language = JSON.parse(result);
     },
 
+    /**
+     * 替换内容
+     * @param Object el
+     */
     replaceLanguage: function(el) {
       var _this = this,
         index = '';
@@ -455,6 +472,7 @@
 
     /**
      * 翻译传入的文本
+     * @param string text
      */
     translateText: function(text){
       if (!this.config.language) {
@@ -466,11 +484,15 @@
 
     /**
      * 将需要翻译的文本生成key
+     * @param string text
      */
     keygen: function(text){
       return this.md5(text);
     },
 
+    /**
+     * 初始化
+     */
     init: function() {
       if (!this.config.language) {
         this.get();
@@ -501,6 +523,9 @@
       this.changeLanguage();
     },
 
+    /**
+     * 修改语言
+     */
     changeLanguage: function() {
       var _this = this;
       this.websiteLanguage = _this.cookie.get('systemLanguage') ? _this.cookie.get('systemLanguage') : this.defaultLanguage;
