@@ -1,22 +1,31 @@
 // JavaScript Document
 /**
- * 作者：www.520internet.com
- * 所有单个元素需要国际化的使用<ins class="i18n">中文</ins>
- * 所有通过js异步修改的元素需要国际化的使用<div class="i18ns"><ins class="i18n">中文</ins></div>
- * *M* 效率仍然需要优化
+ * 作者：savage
  **/
 (function($, window) {
   "use strict";
   var Mi18n = {
     language: null,
-    tempLanguage: '',
+    tempLanguage: [],
     config: {
+      // 初始化的时候自动翻译
+      autoTranslate: true,
+      // 默认语言
       defaultLanguage: '',
+      // 自动采集需要翻译的内容
       autoCollect: true,
+      // 延时采集的时间
       collectDelay: 3000,
+      // 采集后接收内容的接口URL
       insertLanguageUrl: '',
+      // 获取翻译数据的接口 URL
       getLanguageUrl: '',
-      language: ''
+      // 静态配置翻译数据
+      language: '',
+      // 是否侦听所有 mi18n、mi18ns 的变化，true 自动侦听所有，false 手动配置
+      listenerAllMi18nEvent: true,
+      listenerAllMi18nsEvent: true,
+      debug: true
     },
 
     // 浏览器语言
@@ -299,25 +308,30 @@
      * @param string sourceLanguage; 源语言
      * @return null;
      **/
-    add: function(sourceLanguage) {
-      var _this = this;
+    add: function(el, sourceLanguage) {
+      var _this = this,
+        temp = '';
       sourceLanguage = Array.from(new Set(sourceLanguage));
-      if (sourceLanguage.length > 0) {
-        $.ajax({
-          type: 'POST',
-          async: true,
-          dataType: "json",
-          url: _this.config.insertLanguageUrl,
-          data: {
-            language: JSON.stringify(sourceLanguage),
-            page: window.location.href
-          },
-          error: function() {
-            setTimeout(function() {
-              _this.add(sourceLanguage);
-            }, 5000);
-          }
-        });
+      temp = this.md5(sourceLanguage.toString());
+      if (this.tempLanguage.indexOf(temp) == -1){
+        this.tempLanguage.push(temp);
+        if (sourceLanguage.length > 0) {
+          $.ajax({
+            type: 'POST',
+            async: true,
+            dataType: "json",
+            url: _this.config.insertLanguageUrl,
+            data: {
+              language: JSON.stringify(sourceLanguage),
+              page: window.location.href
+            },
+            error: function() {
+              setTimeout(function() {
+                _this.add(el, sourceLanguage);
+              }, 5000);
+            }
+          });
+        }
       }
     },
 
@@ -325,14 +339,16 @@
      * 采集需要翻译的标签
      * @param object el
      */
-    collection: function(el) {
+    gather: function(el) {
       var sourceLanguage = [],
         _this = this;
-      $('.i18n', el).each(function(i) {
-        if ($(this).children().length > 0) return true;
-        if ($(this).text() && $(this).text() != '') {
-          if (_this.language[_this.md5($(this).text())] == undefined) {
-            sourceLanguage.push($(this).text());
+      $('.mi18n', el).each(function(i) {
+        //if ($(this).children().length > 0) return true;
+        if (el.attr('data-set-mi18n-stop-gather') == 1) return true;
+
+        if ($(this).html() && $(this).html() != '') {
+          if (_this.language[_this.md5($(this).html())] == undefined) {
+            sourceLanguage.push(_this.transformerHTML($(this)));
           }
         }
         if ($(this).attr('title') && $(this).attr('title') != '') {
@@ -356,19 +372,35 @@
               sourceLanguage.push($(this).val());
             }
           }
-          if ($(this).attr('type') == 'text' && el.attr('data-set-translate') == 1) {
+          if ($(this).attr('type') == 'text' && el.attr('data-set-mi18n-translate') == 1) {
             if (_this.language[_this.md5($(this).val())] == undefined) {
               sourceLanguage.push($(this).val());
             }
           }
         }
       });
+
       if ($(document).attr('title') && $(document).attr('title') != '') {
         if (_this.language[_this.md5($(document).attr('title'))] == undefined) {
           sourceLanguage.push($(document).attr('title'));
         }
       }
-      this.add(sourceLanguage);
+
+      this.add(el, sourceLanguage);
+    },
+
+    /**
+     * 查询 Language 的值返回 Key
+     */
+    searchLanguageValueReturnKey: function(value){
+      for(var i in this.language){
+        for(var ii in this.language[i]){
+          if (this.language[i][ii] == value){
+            return i;
+          }
+        }
+      }
+      return null;
     },
 
     /**
@@ -392,57 +424,73 @@
     replaceLanguage: function(el) {
       var _this = this,
         index = '';
-      if (el.text() && el.text() != '') {
-        index = _this.md5(el.text());
-        if (this.language[index] && this.language[index][this.websiteLanguage]) {
-          el.text(this.language[index][this.websiteLanguage]);
-          this.language[_this.md5(this.language[index][this.websiteLanguage])] = this.language[index];
+      el.off('DOMNodeInserted');
+
+      if (el.html() && el.html() != '') {
+        if (index = this.searchLanguageValueReturnKey(el.html())) {
+          el.html(this.language[index][this.websiteLanguage]);
+        }
+
+        if (el.find('.mi18n-var')){
+          $('.mi18n-var', el).each(function(){
+            _this.replaceLanguage($(this));
+          });
         }
       }
+
+      if (el.attr('data-set-mi18n-src')){
+        var src = JSON.parse(el.attr('data-set-mi18n-src'));
+        if (el.attr('data-set-mi18n-translate-background') == 1){
+          el.css({"backgroundImage": "url('"+src[this.websiteLanguage]+"')"});
+        }
+        el.attr('src', src[this.websiteLanguage]);
+      }
+
       if (el.val() && el.val() != '') {
         if (el.attr('type') == 'button' || el.attr('type') == 'submit') {
-          index = _this.md5(el.val());
-          if (this.language[index] && this.language[index][this.websiteLanguage]) {
+          if (index = this.searchLanguageValueReturnKey(el.val())) {
             el.val(this.language[index][this.websiteLanguage]);
-            this.language[_this.md5(this.language[index][this.websiteLanguage])] = this.language[index];
           }
         }
       }
       if (el.val() && el.val() != '') {
-        if (el.attr('type') == 'text' && el.attr('data-set-translate') == 1) {
-          index = _this.md5(el.val());
-          if (this.language[index] && this.language[index][this.websiteLanguage]) {
+        if (el.attr('type') == 'text' && el.attr('data-set-mi18n-translate') == 1) {
+          if (index = this.searchLanguageValueReturnKey(el.val())) {
             el.val(this.language[index][this.websiteLanguage]);
-            this.language[_this.md5(this.language[index][this.websiteLanguage])] = this.language[index];
           }
         }
       }
       if (el.attr('title') && el.attr('title') != '') {
-        index = _this.md5(el.attr('title'));
-        if (this.language[index] && this.language[index][this.websiteLanguage]) {
+        if (index = this.searchLanguageValueReturnKey(el.attr('title'))) {
           el.attr('title', this.language[index][this.websiteLanguage]);
-          this.language[_this.md5(this.language[index][this.websiteLanguage])] = this.language[index];
         }
       }
       if (el.attr('placeholder') && el.attr('placeholder') != '') {
-        index = _this.md5(el.attr('placeholder'));
-        if (this.language[index] && this.language[index][this.websiteLanguage]) {
+        if (index = this.searchLanguageValueReturnKey(el.attr('placeholder'))) {
           el.attr('placeholder', this.language[index][this.websiteLanguage]);
-          this.language[_this.md5(this.language[index][this.websiteLanguage])] = this.language[index];
         }
       }
       if (el.attr('alt') && el.attr('alt') != '') {
-        index = _this.md5(el.attr('alt'));
-        if (this.language[index] && this.language[index][this.websiteLanguage]) {
+        if (index = this.searchLanguageValueReturnKey(el.attr('alt'))) {
           el.attr('alt', this.language[index][this.websiteLanguage]);
-          this.language[_this.md5(this.language[index][this.websiteLanguage])] = this.language[index];
         }
       }
 
-      el.off('DOMSubtreeModified').on('DOMSubtreeModified', function() {
-        $(this).off('DOMSubtreeModified');
-        _this.replaceLanguage($(this));
-      });
+      if (el.hasClass('mi18n-var')) return;
+      _this.bindMi18nEvent(el);
+    },
+
+    /**
+     * 检测是否包含变量，如果包含变量进行转换
+     * @param object html
+     */
+    transformerHTML: function(html){
+      if ($(html).children().length > 0){
+        if ($(html).find('.mi18n-var')){
+            $('.mi18n-var', html).empty();
+        }
+      }
+      return html.html();
     },
 
     /**
@@ -451,23 +499,50 @@
      * @return null;
      **/
     translate: function(el) {
-      // *M* 此处还需要优化
       var _this = this;
-      $('.i18n', el).each(function(i) {
-        _this.replaceLanguage($(this));
-      });
-
-      $('.i18ns').off('DOMSubtreeModified').on('DOMSubtreeModified', function() {
-        $(this).off('DOMSubtreeModified');
-        _this.translate($(this));
+      $('.mi18n', el).each(function(index, el) {
+        $(el).removeAttr('data-set-mi18n-stop-gather');
+        _this.replaceLanguage($(el));
       });
 
       // 延时采集需要翻译的内容
       if (_this.config.autoCollect) {
         setTimeout(function() {
-          _this.collection(el);
+          _this.gather(el);
         }, _this.config.collectDelay);
       }
+
+      if (el.hasClass('mi18ns')){
+        //this.bindMi18nsEvent(el);
+      }
+    },
+
+    bindMi18nEvent: function(el){
+      var _this = this;
+      el.on('DOMNodeInserted', function(event){
+        if (event.target.className.indexOf('mi18n-var') != -1){
+          if (event.target.dataset.setMi18nStopTranslate == 1){
+            // 不侦听此本内的变量
+            $('.mi18n-var', el).off('DOMSubtreeModified');
+            event.stopPropagation();
+            return;
+          }
+        }
+        _this.replaceLanguage(el);
+      });
+    },
+
+    bindMi18nsEvent: function(el){
+      var _this = this;
+      // 侦听区域更新，该区域<div class="i18ns"></div>会动态更新 HTML，增加 <ins class="i18n">文本</ins>
+      if (el.children('.mi18n').length > 0){
+        $('.mi18n', el).off('DOMNodeInserted');
+      }
+      el.off('DOMNodeInserted').on('DOMNodeInserted', function(){
+        $(this).off('DOMNodeInserted');
+        _this.translate($(this));
+        _this.bindMi18nsEvent($(this));
+      });
     },
 
     /**
@@ -478,7 +553,7 @@
       if (!this.config.language) {
         this.get();
       }
-      var index = this.md5(text);
+      var index = this.searchLanguageValueReturnKey(text);
       return this.language[index] ? this.language[index] : null;
     },
 
@@ -494,65 +569,42 @@
      * 初始化
      */
     init: function() {
+      var _this = this;
       if (!this.config.language) {
         this.get();
       }
-      var _this = this;
-      switch (_this.getLanguage()) {
-        case 'en':
-          this.defaultLanguage = 'en';
-          break;
-        case 'ja':
-          this.defaultLanguage = 'ja';
-          break;
-        case 'ko':
-          this.defaultLanguage = 'ko';
-          break;
-        case 'de':
-          this.defaultLanguage = 'de';
-          break;
-        case 'zh':
-          this.defaultLanguage = 'zh';
-          break;
-        default:
-          this.defaultLanguage = this.config.defaultLanguage;
-          break;
-      }
+      var browserLanguage = this.getLanguage();
+      this.defaultLanguage = browserLanguage ? browserLanguage : this.config.defaultLanguage;
+      this.websiteLanguage = this.cookie.get('systemLanguage') ? this.cookie.get('systemLanguage') : this.defaultLanguage;
 
-      this.websiteLanguage = _this.cookie.get('systemLanguage') ? _this.cookie.get('systemLanguage') : this.defaultLanguage;
-      this.changeLanguage();
+      if (this.config.listenerAllMi18nEvent) this.bindMi18nEvent($('body .mi18n'));
+      if (this.config.listenerAllMi18nsEvent) this.bindMi18nsEvent($('body .mi18ns'));
+      // 开始翻译
+      if (this.config.autoTranslate) this.changeLanguage();
     },
 
     /**
      * 修改语言
      */
     changeLanguage: function() {
-      var _this = this;
-      this.websiteLanguage = _this.cookie.get('systemLanguage') ? _this.cookie.get('systemLanguage') : this.defaultLanguage;
-      if (this.language[_this.md5($(document).attr('title'))]) {
-        $(document).attr('title', this.language[_this.md5($(document).attr('title'))][this.websiteLanguage]);
+      this.websiteLanguage = this.cookie.get('systemLanguage') ? this.cookie.get('systemLanguage') : this.defaultLanguage;
+      if (this.language[this.md5($(document).attr('title'))]) {
+        $(document).attr('title', this.language[this.md5($(document).attr('title'))][this.websiteLanguage]);
       }
-      $('.i18n').off('DOMSubtreeModified');
-      $('.i18ns').off('DOMSubtreeModified');
+      // 翻译
       this.translate($('body'));
-
-      // 延时采集需要翻译的内容
-      /*
-      setTimeout(function(){
-        _this.collection($('body'));
-      }, 15000);
-      */
     }
   };
+
   if (typeof define === 'function' && define.amd) {
-      define(function () {
-        return Mi18n
-      })
-    } else if (typeof module === 'object' && module.exports) {
-      module.exports = Mi18n
-    } else {
-      window.Mi18n = Mi18n;
-    }
+    define(function () {
+      return Mi18n;
+    })
+  } else if (typeof module === 'object' && module.exports) {
+    module.exports = Mi18n;
+  } else {
+    window.Mi18n = Mi18n;
+  }
 })($, window);
 
 console.log('https://github.com/520internet/Mi18n');
