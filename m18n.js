@@ -310,20 +310,26 @@
      **/
     add: function(el, sourceLanguage) {
       var _this = this,
-        temp = '';
-      sourceLanguage = Array.from(new Set(sourceLanguage));
-      temp = this.md5(sourceLanguage.toString());
-      if (this.tempLanguage.indexOf(temp) == -1){
-        this.tempLanguage.push(temp);
-        if (sourceLanguage.length > 0) {
+        tempLanguage = [];
+
+      sourceLanguage = Array.from(new Set(sourceLanguage)); // 去重
+      for(var i in sourceLanguage){
+        if (_this.searchLanguageValueReturnKey(sourceLanguage[i]) == null){
+          tempLanguage.push(sourceLanguage[i]);
+        }
+      }
+      if (tempLanguage.length > 0){
           $.ajax({
             type: 'POST',
             async: true,
             dataType: "json",
             url: _this.config.insertLanguageUrl,
             data: {
-              language: JSON.stringify(sourceLanguage),
+              language: JSON.stringify(tempLanguage),
               page: window.location.href
+            },
+            success: function(result){
+              if (result == 'true') _this.tempLanguage.push(tempLanguage);
             },
             error: function() {
               setTimeout(function() {
@@ -331,7 +337,6 @@
               }, 5000);
             }
           });
-        }
       }
     },
 
@@ -348,7 +353,7 @@
 
         if ($(this).html() && $(this).html() != '') {
           if (_this.language[_this.md5($(this).html())] == undefined) {
-            sourceLanguage.push(_this.transformerHTML($(this)));
+            sourceLanguage.push(_this.transformHTML($(this)).html);
           }
         }
         if ($(this).attr('title') && $(this).attr('title') != '') {
@@ -385,7 +390,6 @@
           sourceLanguage.push($(document).attr('title'));
         }
       }
-
       this.add(el, sourceLanguage);
     },
 
@@ -427,13 +431,30 @@
       el.off('DOMNodeInserted');
 
       if (el.html() && el.html() != '') {
-        if (index = this.searchLanguageValueReturnKey(el.html())) {
-          el.html(this.language[index][this.websiteLanguage]);
+        var transformHTML = _this.transformHTML(el),
+            mi18nVar = [],
+            mi18nVarSourceHtml = [];
+        if ($('.mi18n-var', $('<language>'+transformHTML.sourceHtml+'</language>')).length > 0){
+            $('.mi18n-var', $('<language>'+transformHTML.sourceHtml+'</language>')).each(function(i){
+              if ($(this).html() != ''){
+                if (index = _this.searchLanguageValueReturnKey($(this).html())){
+                  mi18nVar[i] = _this.language[index][_this.websiteLanguage];
+                  mi18nVarSourceHtml[i] = $(this).html();
+                }
+              }
+            });
         }
-
-        if (el.find('.mi18n-var')){
-          $('.mi18n-var', el).each(function(){
-            _this.replaceLanguage($(this));
+        if (index = this.searchLanguageValueReturnKey(transformHTML.html)) {
+          var mi18nText = this.language[index][this.websiteLanguage];
+        }
+        el.html(mi18nText);
+        if (mi18nVar.length > 0){
+          $('.mi18n-var', el).each(function(i){
+            if ($(this).attr('data-set-mi18n-stop-translate') != 1){
+              $(this).html(mi18nVar[i]);
+            } else {
+              $(this).html(mi18nVarSourceHtml[i]);
+            }
           });
         }
       }
@@ -484,13 +505,15 @@
      * 检测是否包含变量，如果包含变量进行转换
      * @param object html
      */
-    transformerHTML: function(html){
-      if ($(html).children().length > 0){
-        if ($(html).find('.mi18n-var')){
-            $('.mi18n-var', html).empty();
-        }
+    transformHTML: function(html){
+      var sourceHtml = html.html();
+      if ($('.mi18n-var', html).length > 0){
+          $('.mi18n-var', html).empty();
       }
-      return html.html();
+      return {
+        'sourceHtml': sourceHtml,
+         'html': html.html()
+      };
     },
 
     /**
@@ -519,17 +542,22 @@
 
     bindMi18nEvent: function(el){
       var _this = this;
-      el.on('DOMNodeInserted', function(event){
-        if (event.target.className.indexOf('mi18n-var') != -1){
-          if (event.target.dataset.setMi18nStopTranslate == 1){
-            // 不侦听此本内的变量
-            $('.mi18n-var', el).off('DOMSubtreeModified');
-            event.stopPropagation();
-            return;
+      if (el.hasClass('mi18n')){
+        el.on('DOMNodeInserted', function(event){
+          if (event.target.className.indexOf('mi18n-var') != -1){
+            if (event.target.dataset.setMi18nStopTranslate == 1){
+              // 不侦听此内容内的变量
+              //$('.mi18n-var', event.target).off('DOMNodeInserted');
+              return;
+            }
           }
-        }
-        _this.replaceLanguage(el);
-      });
+          _this.replaceLanguage(el);
+        });
+      } else {
+        $('.mi18n', el).on('DOMNodeInserted', function(event){
+          _this.replaceLanguage(el);
+        });
+      }
     },
 
     bindMi18nsEvent: function(el){
@@ -553,8 +581,12 @@
       if (!this.config.language) {
         this.get();
       }
-      var index = this.searchLanguageValueReturnKey(text);
-      return this.language[index] ? this.language[index] : null;
+      if (this.language){
+        var index = this.searchLanguageValueReturnKey(text);
+        return this.language[index] ? this.language[index] : null;
+      } else {
+        return text;
+      }
     },
 
     /**
@@ -588,9 +620,13 @@
      */
     changeLanguage: function() {
       this.websiteLanguage = this.cookie.get('systemLanguage') ? this.cookie.get('systemLanguage') : this.defaultLanguage;
-      if (this.language[this.md5($(document).attr('title'))]) {
-        $(document).attr('title', this.language[this.md5($(document).attr('title'))][this.websiteLanguage]);
+      if (this.language){
+        var index;
+        if (index = this.searchLanguageValueReturnKey($(document).attr('title'))) {
+          $(document).attr('title', this.language[index][this.websiteLanguage]);
+        }
       }
+
       // 翻译
       this.translate($('body'));
     }
