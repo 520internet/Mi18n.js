@@ -8,6 +8,8 @@
     language: null,
     tempLanguage: [],
     config: {
+      // 在获取翻译数据的时候只查询指定URL
+      page: '',
       // 初始化的时候自动翻译
       autoTranslate: true,
       // 默认语言
@@ -315,7 +317,9 @@
       sourceLanguage = Array.from(new Set(sourceLanguage)); // 去重
       for(var i in sourceLanguage){
         if (_this.searchLanguageValueReturnKey(sourceLanguage[i]) == null){
-          tempLanguage.push(sourceLanguage[i]);
+          if (_this.tempLanguage.indexOf(sourceLanguage[i]) == -1){
+            tempLanguage.push(sourceLanguage[i]);
+          }
         }
       }
       if (tempLanguage.length > 0){
@@ -326,7 +330,7 @@
             url: _this.config.insertLanguageUrl,
             data: {
               language: JSON.stringify(tempLanguage),
-              page: window.location.href
+              page: window.location.pathname
             },
             success: function(result){
               if (result == 'true') _this.tempLanguage.push(tempLanguage);
@@ -416,6 +420,7 @@
       var _this = this;
       var result = $.ajax({
         url: _this.config.getLanguageUrl,
+        data: {'page': _this.config.page},
         async: false
       }).responseText;
       this.language = JSON.parse(result);
@@ -429,6 +434,7 @@
       var _this = this,
         index = '';
       el.off('DOMNodeInserted');
+      el.off('DOMSubtreeModified');
 
       if (el.html() && el.html() != '') {
         var transformHTML = _this.transformHTML(el),
@@ -539,6 +545,36 @@
         //this.bindMi18nsEvent(el);
       }
     },
+    /*
+    observer : function(el){
+      // 选择需要观察变动的节点
+      const targetNode = el;
+
+      // 观察器的配置（需要观察什么变动）
+      const config = { attributes: true, childList: true, subtree: true };
+
+      // 当观察到变动时执行的回调函数
+      const callback = function(mutationsList, observer) {
+          // Use traditional 'for loops' for IE 11
+          for(let mutation of mutationsList) {
+              if (mutation.type === 'childList') {
+                  console.log('A child node has been added or removed.');
+              } else if (mutation.type === 'attributes') {
+                  console.log('The ' + mutation.attributeName + ' attribute was modified.');
+              }
+          }
+      };
+
+      // 创建一个观察器实例并传入回调函数
+      const observer = new MutationObserver(callback);
+
+      // 以上述配置开始观察目标节点
+      observer.observe(targetNode, config);
+
+      // 之后，可停止观察
+      observer.disconnect();
+    },
+    */
 
     bindMi18nEvent: function(el){
       var _this = this;
@@ -553,6 +589,11 @@
           }
           _this.replaceLanguage(el);
         });
+        if (el[0].localName == 'input' || el[0].localName == 'textarea'){
+          el.on('DOMSubtreeModified', function(event){
+            _this.replaceLanguage(el);
+          });
+        }
       } else {
         $('.mi18n', el).on('DOMNodeInserted', function(event){
           _this.replaceLanguage(el);
@@ -562,15 +603,27 @@
 
     bindMi18nsEvent: function(el){
       var _this = this;
-      // 侦听区域更新，该区域<div class="i18ns"></div>会动态更新 HTML，增加 <ins class="i18n">文本</ins>
-      if (el.children('.mi18n').length > 0){
-        $('.mi18n', el).off('DOMNodeInserted');
+      if (el.hasClass('mi18ns')){
+        // 侦听区域更新，该区域<div class="i18ns"></div>会动态更新 HTML，增加 <ins class="i18n">文本</ins>
+        if (el.children('.mi18n').length > 0){
+          $('.mi18n', el).off('DOMNodeInserted');
+        }
+        el.off('DOMNodeInserted').on('DOMNodeInserted', function(){
+          $(this).off('DOMNodeInserted');
+          _this.translate($(this));
+          _this.bindMi18nsEvent($(this));
+        });
+      } else {
+        // 侦听区域更新，该区域<div class="i18ns"></div>会动态更新 HTML，增加 <ins class="i18n">文本</ins>
+        if ($('.mi18ns', el).children('.mi18n').length > 0){
+          $('.mi18n', el).off('DOMNodeInserted');
+        }
+        $('.mi18ns', el).off('DOMNodeInserted').on('DOMNodeInserted', function(){
+          $(this).off('DOMNodeInserted');
+          _this.translate($(this));
+          _this.bindMi18nsEvent($(this));
+        });
       }
-      el.off('DOMNodeInserted').on('DOMNodeInserted', function(){
-        $(this).off('DOMNodeInserted');
-        _this.translate($(this));
-        _this.bindMi18nsEvent($(this));
-      });
     },
 
     /**
@@ -609,8 +662,8 @@
       this.defaultLanguage = browserLanguage ? browserLanguage : this.config.defaultLanguage;
       this.websiteLanguage = this.cookie.get('systemLanguage') ? this.cookie.get('systemLanguage') : this.defaultLanguage;
 
-      if (this.config.listenerAllMi18nEvent) this.bindMi18nEvent($('body .mi18n'));
-      if (this.config.listenerAllMi18nsEvent) this.bindMi18nsEvent($('body .mi18ns'));
+      if (this.config.listenerAllMi18nEvent) this.bindMi18nEvent($('body'));
+      if (this.config.listenerAllMi18nsEvent) this.bindMi18nsEvent($('body'));
       // 开始翻译
       if (this.config.autoTranslate) this.changeLanguage();
     },
@@ -642,5 +695,7 @@
     window.Mi18n = Mi18n;
   }
 })($, window);
+
+export default Mi18n;
 
 console.log('https://github.com/520internet/Mi18n');
