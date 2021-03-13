@@ -1,6 +1,7 @@
 // JavaScript Document
 /**
- * 作者：savage
+ * Mi18n 国际化
+ * 作者：savage webmaster@520internet.com
  **/
 (function($, window) {
   "use strict";
@@ -315,32 +316,33 @@
         tempLanguage = [];
 
       sourceLanguage = Array.from(new Set(sourceLanguage)); // 去重
-      for(var i in sourceLanguage){
-        if (_this.searchLanguageValueReturnKey(sourceLanguage[i]) == null){
-          if (_this.tempLanguage.indexOf(sourceLanguage[i]) == -1){
+      for (var i in sourceLanguage) {
+        if (_this.searchLanguageValueReturnKey(sourceLanguage[i]) == null) {
+          if (_this.tempLanguage.indexOf(sourceLanguage[i]) == -1) {
             tempLanguage.push(sourceLanguage[i]);
           }
         }
       }
-      if (tempLanguage.length > 0){
-          $.ajax({
-            type: 'POST',
-            async: true,
-            dataType: "json",
-            url: _this.config.insertLanguageUrl,
-            data: {
-              language: JSON.stringify(tempLanguage),
-              page: window.location.pathname
-            },
-            success: function(result){
-              if (result == 'true') _this.tempLanguage.push(tempLanguage);
-            },
-            error: function() {
-              setTimeout(function() {
-                _this.add(el, sourceLanguage);
-              }, 5000);
-            }
-          });
+      if (tempLanguage.length > 0) {
+        $.ajax({
+          type: 'POST',
+          async: true,
+          dataType: "json",
+          url: _this.config.insertLanguageUrl,
+          data: {
+            domain: _this.config.domain,
+            language: JSON.stringify(tempLanguage),
+            page: window.location.pathname
+          },
+          success: function(result) {
+            if (result == 'true') _this.tempLanguage.push(tempLanguage);
+          },
+          error: function() {
+            setTimeout(function() {
+              _this.add(el, sourceLanguage);
+            }, 5000);
+          }
+        });
       }
     },
 
@@ -353,9 +355,8 @@
         _this = this;
       $('.mi18n', el).each(function(i) {
         //if ($(this).children().length > 0) return true;
-        if (el.attr('data-set-mi18n-stop-gather') == 1) return true;
-
         if ($(this).html() && $(this).html() != '') {
+          if (el.attr('data-set-mi18n-stop-gather') == 1) return true;
           if (_this.language[_this.md5($(this).html())] == undefined) {
             sourceLanguage.push(_this.transformHTML($(this)).html);
           }
@@ -375,13 +376,19 @@
             sourceLanguage.push($(this).attr('placeholder'));
           }
         }
+        if ($(this).attr('label') && $(this).attr('label') != '') {
+          if (_this.language[_this.md5($(this).attr('label'))] == undefined) {
+            sourceLanguage.push($(this).attr('label'));
+          }
+        }
         if ($(this).val() && $(this).val() != '') {
+          if (el.attr('data-set-mi18n-stop-gather') == 1) return true;
           if ($(this).attr('type') == 'button' || $(this).attr('type') == 'submit') {
             if (_this.language[_this.md5($(this).val())] == undefined) {
               sourceLanguage.push($(this).val());
             }
           }
-          if ($(this).attr('type') == 'text' && el.attr('data-set-mi18n-translate') == 1) {
+          if ($(this).attr('type') == 'text') {
             if (_this.language[_this.md5($(this).val())] == undefined) {
               sourceLanguage.push($(this).val());
             }
@@ -400,10 +407,10 @@
     /**
      * 查询 Language 的值返回 Key
      */
-    searchLanguageValueReturnKey: function(value){
-      for(var i in this.language){
-        for(var ii in this.language[i]){
-          if (this.language[i][ii] == value){
+    searchLanguageValueReturnKey: function(value) {
+      for (var i in this.language) {
+        for (var ii in this.language[i]) {
+          if (this.language[i][ii] == value) {
             return i;
           }
         }
@@ -420,10 +427,21 @@
       var _this = this;
       var result = $.ajax({
         url: _this.config.getLanguageUrl,
-        data: {'page': _this.config.page},
+        data: {
+          'page': _this.config.page,
+          'website': _this.config.website
+        },
         async: false
       }).responseText;
       this.language = JSON.parse(result);
+    },
+
+    /**
+     * 判断是否为组件
+     * @param {Object} el
+     */
+    isComponent: function(el){
+      //console.log(el[0].localName);
     },
 
     /**
@@ -435,28 +453,29 @@
         index = '';
       el.off('DOMNodeInserted');
       el.off('DOMSubtreeModified');
-
-      if (el.html() && el.html() != '') {
+      if (el.html() != '') {
+        if (el.attr('data-set-mi18n-stop-translate') == 1) return;
         var transformHTML = _this.transformHTML(el),
-            mi18nVar = [],
-            mi18nVarSourceHtml = [];
-        if ($('.mi18n-var', $('<language>'+transformHTML.sourceHtml+'</language>')).length > 0){
-            $('.mi18n-var', $('<language>'+transformHTML.sourceHtml+'</language>')).each(function(i){
-              if ($(this).html() != ''){
-                if (index = _this.searchLanguageValueReturnKey($(this).html())){
-                  mi18nVar[i] = _this.language[index][_this.websiteLanguage];
-                  mi18nVarSourceHtml[i] = $(this).html();
-                }
+          mi18nVar = [],
+          mi18nVarSourceHtml = [];
+        if ($('.mi18n-var', $('<language>' + transformHTML.sourceHtml + '</language>')).length > 0) {
+          $('.mi18n-var', $('<language>' + transformHTML.sourceHtml + '</language>')).each(function(i) {
+            if ($(this).html() != '') {
+              if (index = _this.searchLanguageValueReturnKey($(this).html())) {
+                mi18nVar[i] = _this.language[index][_this.websiteLanguage];
               }
-            });
+              mi18nVarSourceHtml[i] = $(this).html();
+            }
+          });
         }
+
         if (index = this.searchLanguageValueReturnKey(transformHTML.html)) {
           var mi18nText = this.language[index][this.websiteLanguage];
         }
         el.html(mi18nText);
-        if (mi18nVar.length > 0){
-          $('.mi18n-var', el).each(function(i){
-            if ($(this).attr('data-set-mi18n-stop-translate') != 1){
+        if (mi18nVar.length > 0 || mi18nVarSourceHtml.length > 0) {
+          $('.mi18n-var', el).each(function(i) {
+            if ($(this).attr('data-set-mi18n-stop-translate') != 1) {
               $(this).html(mi18nVar[i]);
             } else {
               $(this).html(mi18nVarSourceHtml[i]);
@@ -465,28 +484,34 @@
         }
       }
 
-      if (el.attr('data-set-mi18n-src')){
+      if (el.attr('data-set-mi18n-src')) {
         var src = JSON.parse(el.attr('data-set-mi18n-src'));
-        if (el.attr('data-set-mi18n-translate-background') == 1){
-          el.css({"backgroundImage": "url('"+src[this.websiteLanguage]+"')"});
+        if (el.attr('data-set-mi18n-translate-background') == 1) {
+          el.css({
+            "backgroundImage": "url('" + src[this.websiteLanguage] + "')"
+          });
         }
         el.attr('src', src[this.websiteLanguage]);
       }
 
       if (el.val() && el.val() != '') {
+        if (el.attr('data-set-mi18n-stop-translate') == 1) return;
         if (el.attr('type') == 'button' || el.attr('type') == 'submit') {
           if (index = this.searchLanguageValueReturnKey(el.val())) {
             el.val(this.language[index][this.websiteLanguage]);
           }
         }
       }
+
       if (el.val() && el.val() != '') {
-        if (el.attr('type') == 'text' && el.attr('data-set-mi18n-translate') == 1) {
+        if (el.attr('data-set-mi18n-stop-translate') == 1) return;
+        if (el.attr('type') == 'text') {
           if (index = this.searchLanguageValueReturnKey(el.val())) {
             el.val(this.language[index][this.websiteLanguage]);
           }
         }
       }
+      //el[0].localName == 'textarea'
       if (el.attr('title') && el.attr('title') != '') {
         if (index = this.searchLanguageValueReturnKey(el.attr('title'))) {
           el.attr('title', this.language[index][this.websiteLanguage]);
@@ -495,6 +520,11 @@
       if (el.attr('placeholder') && el.attr('placeholder') != '') {
         if (index = this.searchLanguageValueReturnKey(el.attr('placeholder'))) {
           el.attr('placeholder', this.language[index][this.websiteLanguage]);
+        }
+      }
+      if (el.attr('label') && el.attr('label') != '') {
+        if (index = this.searchLanguageValueReturnKey(el.attr('label'))) {
+          el.attr('label', this.language[index][this.websiteLanguage]);
         }
       }
       if (el.attr('alt') && el.attr('alt') != '') {
@@ -511,15 +541,18 @@
      * 检测是否包含变量，如果包含变量进行转换
      * @param object html
      */
-    transformHTML: function(html){
-      var sourceHtml = html.html();
-      if ($('.mi18n-var', html).length > 0){
-          $('.mi18n-var', html).empty();
+    transformHTML: function(html) {
+      var sourceHtml = html.html(),
+        tempHtml = html.html();
+      if ($('.mi18n-var', '<language>'+sourceHtml+'</language>').length > 0) {
+        tempHtml = $('.mi18n-var', '<language>'+tempHtml+'</language>').empty();
+        tempHtml = tempHtml.prevObject[0].innerHTML;
       }
-      return {
+      var data = {
         'sourceHtml': sourceHtml,
-         'html': html.html()
+        'html': tempHtml
       };
+      return data;
     },
 
     /**
@@ -541,7 +574,7 @@
         }, _this.config.collectDelay);
       }
 
-      if (el.hasClass('mi18ns')){
+      if (el.hasClass('mi18ns')) {
         //this.bindMi18nsEvent(el);
       }
     },
@@ -576,12 +609,12 @@
     },
     */
 
-    bindMi18nEvent: function(el){
+    bindMi18nEvent: function(el) {
       var _this = this;
-      if (el.hasClass('mi18n')){
-        el.on('DOMNodeInserted', function(event){
-          if (event.target.className.indexOf('mi18n-var') != -1){
-            if (event.target.dataset.setMi18nStopTranslate == 1){
+      if (el.hasClass('mi18n')) {
+        el.on('DOMNodeInserted', function(event) {
+          if (event.target.className.indexOf('mi18n-var') != -1) {
+            if (event.target.dataset.setMi18nStopTranslate == 1) {
               // 不侦听此内容内的变量
               //$('.mi18n-var', event.target).off('DOMNodeInserted');
               return;
@@ -589,36 +622,36 @@
           }
           _this.replaceLanguage(el);
         });
-        if (el[0].localName == 'input' || el[0].localName == 'textarea'){
-          el.on('DOMSubtreeModified', function(event){
+        if (el[0].localName == 'input' || el[0].localName == 'textarea') {
+          el.on('DOMSubtreeModified', function(event) {
             _this.replaceLanguage(el);
           });
         }
       } else {
-        $('.mi18n', el).on('DOMNodeInserted', function(event){
+        $('.mi18n', el).on('DOMNodeInserted', function(event) {
           _this.replaceLanguage(el);
         });
       }
     },
 
-    bindMi18nsEvent: function(el){
+    bindMi18nsEvent: function(el) {
       var _this = this;
-      if (el.hasClass('mi18ns')){
-        // 侦听区域更新，该区域<div class="i18ns"></div>会动态更新 HTML，增加 <ins class="i18n">文本</ins>
-        if (el.children('.mi18n').length > 0){
+      if (el.hasClass('mi18ns')) {
+        // 侦听区域更新，该区域<div class="mi18ns"></div>会动态更新 HTML，增加 <ins class="mi18n">文本</ins>
+        if (el.children('.mi18n').length > 0) {
           $('.mi18n', el).off('DOMNodeInserted');
         }
-        el.off('DOMNodeInserted').on('DOMNodeInserted', function(){
+        el.off('DOMNodeInserted').on('DOMNodeInserted', function() {
           $(this).off('DOMNodeInserted');
           _this.translate($(this));
           _this.bindMi18nsEvent($(this));
         });
       } else {
-        // 侦听区域更新，该区域<div class="i18ns"></div>会动态更新 HTML，增加 <ins class="i18n">文本</ins>
-        if ($('.mi18ns', el).children('.mi18n').length > 0){
+        // 侦听区域更新，该区域<div class="mi18ns"></div>会动态更新 HTML，增加 <ins class="mi18n">文本</ins>
+        if ($('.mi18ns', el).children('.mi18n').length > 0) {
           $('.mi18n', el).off('DOMNodeInserted');
         }
-        $('.mi18ns', el).off('DOMNodeInserted').on('DOMNodeInserted', function(){
+        $('.mi18ns', el).off('DOMNodeInserted').on('DOMNodeInserted', function() {
           $(this).off('DOMNodeInserted');
           _this.translate($(this));
           _this.bindMi18nsEvent($(this));
@@ -630,13 +663,19 @@
      * 翻译传入的文本
      * @param string text
      */
-    translateText: function(text){
+    translateText: function(text) {
+      var _this = this;
       if (!this.config.language) {
         this.get();
       }
-      if (this.language){
+      if (this.language) {
         var index = this.searchLanguageValueReturnKey(text);
-        return this.language[index] ? this.language[index] : null;
+        if (!this.language[index]){
+          this.add('', [text]);
+        }
+        var language = [];
+        language[_this.websiteLanguage] = text;
+        return this.language[index] ? this.language[index] : language;
       } else {
         return text;
       }
@@ -646,7 +685,7 @@
      * 将需要翻译的文本生成key
      * @param string text
      */
-    keygen: function(text){
+    keygen: function(text) {
       return this.md5(text);
     },
 
@@ -673,7 +712,7 @@
      */
     changeLanguage: function() {
       this.websiteLanguage = this.cookie.get('systemLanguage') ? this.cookie.get('systemLanguage') : this.defaultLanguage;
-      if (this.language){
+      if (this.language) {
         var index;
         if (index = this.searchLanguageValueReturnKey($(document).attr('title'))) {
           $(document).attr('title', this.language[index][this.websiteLanguage]);
@@ -686,7 +725,7 @@
   };
 
   if (typeof define === 'function' && define.amd) {
-    define(function () {
+    define(function() {
       return Mi18n;
     })
   } else if (typeof module === 'object' && module.exports) {
