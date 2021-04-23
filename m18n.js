@@ -1,7 +1,7 @@
 // JavaScript Document
 /**
  * Mi18n 国际化
- * 作者：savage webmaster@520internet.com
+ * 作者：亮 webmaster@520internet.com
  **/
 (function($, window) {
   "use strict";
