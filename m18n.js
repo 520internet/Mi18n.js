@@ -2,6 +2,7 @@
 /**
  * Mi18n 国际化
  * 作者：亮 webmaster@520internet.com
+ * MD5算法部分非作者编写
  **/
 (function($, window) {
   "use strict";
