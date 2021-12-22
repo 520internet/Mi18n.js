@@ -2,7 +2,6 @@
 /**
  * Mi18n 国际化
  * 作者：亮 webmaster@520internet.com
- * MD5算法部分非作者编写
  **/
 (function($, window) {
   "use strict";
@@ -420,7 +419,7 @@
     },
 
     /**
-     * 从数据库获取内容
+     * 从接口获取内容
      * @return array;
      **/
     get: function() {
@@ -455,6 +454,13 @@
       el.off('DOMNodeInserted');
       el.off('DOMSubtreeModified');
       if (el.html() != '') {
+        if (el.attr('data-set-hide-with-language')){
+          if (el.attr('data-set-hide-with-language').indexOf(_this.websiteLanguage) != -1){
+            el.hide();
+          } else {
+            el.show();
+          }
+        }
         if (el.attr('data-set-mi18n-stop-translate') == 1) return;
         var transformHTML = _this.transformHTML(el),
           mi18nVar = [],
@@ -495,6 +501,11 @@
         el.attr('src', src[this.websiteLanguage]);
       }
 
+      if (el.attr('data-set-mi18n-href')) {
+        var href = JSON.parse(el.attr('data-set-mi18n-href'));
+        el.attr('href', href[this.websiteLanguage]);
+      }
+
       if (el.val() && el.val() != '') {
         if (el.attr('data-set-mi18n-stop-translate') == 1) return;
         if (el.attr('type') == 'button' || el.attr('type') == 'submit') {
@@ -533,7 +544,6 @@
           el.attr('alt', this.language[index][this.websiteLanguage]);
         }
       }
-
       if (el.hasClass('mi18n-var')) return;
       _this.bindMi18nEvent(el);
     },
@@ -614,6 +624,7 @@
       var _this = this;
       if (el.hasClass('mi18n')) {
         el.on('DOMNodeInserted', function(event) {
+          /*
           if (event.target.className.indexOf('mi18n-var') != -1) {
             if (event.target.dataset.setMi18nStopTranslate == 1) {
               // 不侦听此内容内的变量
@@ -621,6 +632,7 @@
               return;
             }
           }
+          */
           _this.replaceLanguage(el);
         });
         if (el[0].localName == 'input' || el[0].localName == 'textarea') {
